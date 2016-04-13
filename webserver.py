@@ -14,7 +14,7 @@ import os
 import signal
 
 
-#signal handler
+# signal handler
 def grim_reaper(signum, frame):
     while True:
         try:
@@ -33,7 +33,7 @@ class WSGIServer(object):
 
     address_family = socket.AF_INET
     socket_type = socket.SOCK_STREAM
-    request_queue_size = 1
+    request_queue_size = 10000
 
     def __init__(self, server_address):
         self.listen_socket = listen_socket = socket.socket(
@@ -67,19 +67,26 @@ class WSGIServer(object):
                     continue
                 else:
                     raise
+            except:
+                print "can't build socket"
+                os._exit(1)
 
             pid = os.fork()
             if pid == 0:
                 listen_socket.close()
                 self.handle_one_request()
-                #self.client_connection.close()
+                # self.client_connection.close()
                 os._exit(0)
-            else :  #parent
+            else:  # parent
                 self.client_connection.close()
 
 
     def handle_one_request(self):
-        self.request_data = request_data = self.client_connection.recv(1024)
+        request_data = self.client_connection.recv(1024)
+        if not request_data:
+            self.client_connection.close()
+            return
+
         print(''.join(
             '<{line}\n'.format(line=line)
             for line in request_data.splitlines()
@@ -102,10 +109,10 @@ class WSGIServer(object):
         env = {}
         env['wsgi.version']      = (1, 0)
         env['wsgi.url_scheme']   = 'http'
-        env['wsgi.input']        = StringIO.StringIO(self.request_data)
+        #env['wsgi.input']        = StringIO.StringIO(self.request_data)
         env['wsgi.errors']       = sys.stderr
         env['wsgi.multithread']  = False
-        env['wsgi.multiprocess'] = False
+        env['wsgi.multiprocess'] = True
         env['wsgi.run_once']     = False
 
         # Required CGI variables
@@ -160,4 +167,3 @@ if __name__ == '__main__':
     httpd = make_server(SERVER_ADDRESS, application)
     print('WSGIServer: Serving HTTP on port {port}...\n'.format(port=PORT))
     httpd.serve_forever()
-
